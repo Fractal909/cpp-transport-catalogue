@@ -106,23 +106,18 @@ void InputReader::ParseLine(std::string_view line) {
 
 void InputReader::ApplyCommands([[maybe_unused]] catalogue::TransportCatalogue& catalogue) const {
     // Реализуйте метод самостоятельно
-    std::vector<const CommandDescription*> Stops;
-    std::vector<const CommandDescription*> Buses;
+    std::vector<const CommandDescription*> buses_commands;
 
     for (const auto& command : commands_) {
         if (command.command == "Stop") {
-            Stops.push_back(&command);
+            ApplyCommand(command, catalogue);
         }
         else {
-            Buses.push_back(&command);
+            buses_commands.push_back(&command);
         }
     }
 
-    for (const auto& command_ptr : Stops) {
-        ApplyCommand(*command_ptr, catalogue);
-    }
-
-    for (const auto& command_ptr : Buses) {
+    for (const auto& command_ptr : buses_commands) {
         ApplyCommand(*command_ptr, catalogue);
     }
 }
@@ -135,7 +130,7 @@ void InputReader::ApplyCommand(const CommandDescription& command, catalogue::Tra
     }
 
     else if (command.command == "Bus") {
-        std::deque<const Stop*> route_stops;
+        std::vector<const Stop*> route_stops;
         auto route = ParseRoute(command.description);
 
         for (const auto& stop : route) {
