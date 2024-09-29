@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <iterator>
+#include <optional>
 
 #include <deque>
 
@@ -25,6 +26,38 @@ Coordinates ParseCoordinates(std::string_view str) {
     double lng = std::stod(std::string(str.substr(not_space2)));
 
     return { lat, lng };
+}
+
+std::unordered_map<std::string_view, int> ParseDistances(std::string_view str) {
+
+    std::unordered_map<std::string_view, int> result;
+
+    auto start_pos = str.find_first_of(',');
+
+
+    start_pos = str.find_first_of(',', ++start_pos);
+
+    while (start_pos != str.npos) {
+        start_pos = str.find_first_not_of(' ', ++start_pos);
+        auto end_pos = str.find_first_of('m', start_pos);
+
+        int distance = std::stoi(std::string(str.substr(start_pos, end_pos - start_pos)));
+
+        start_pos = end_pos = str.find_first_of("to", end_pos) + 2;
+        start_pos = str.find_first_not_of(' ', end_pos);
+        end_pos = str.find_first_of(',', start_pos);
+        if (end_pos == str.npos) {
+            end_pos = str.size();
+        }
+
+        std::string_view stop_name = str.substr(start_pos, end_pos - start_pos);
+
+        result.insert({ stop_name, distance });
+
+        start_pos = str.find_first_of(',', ++start_pos);
+    }
+
+    return result;
 }
 
 /**
@@ -97,6 +130,8 @@ CommandDescription ParseCommandDescription(std::string_view line) {
             std::string(line.substr(colon_pos + 1)) };
 }
 
+
+
 void InputReader::ParseLine(std::string_view line) {
     auto command_description = ParseCommandDescription(line);
     if (command_description) {
@@ -107,10 +142,12 @@ void InputReader::ParseLine(std::string_view line) {
 void InputReader::ApplyCommands([[maybe_unused]] catalogue::TransportCatalogue& catalogue) const {
     // Реализуйте метод самостоятельно
     std::vector<const CommandDescription*> buses_commands;
+    std::vector<const CommandDescription*> stops_commands;
 
     for (const auto& command : commands_) {
         if (command.command == "Stop") {
             ApplyCommand(command, catalogue);
+            stops_commands.push_back(&command);
         }
         else {
             buses_commands.push_back(&command);
@@ -119,6 +156,10 @@ void InputReader::ApplyCommands([[maybe_unused]] catalogue::TransportCatalogue& 
 
     for (const auto& command_ptr : buses_commands) {
         ApplyCommand(*command_ptr, catalogue);
+    }
+
+    for (const auto& command_ptr : stops_commands) {
+        ApplyStopDistances(*command_ptr, catalogue);
     }
 }
 
@@ -138,5 +179,12 @@ void InputReader::ApplyCommand(const CommandDescription& command, catalogue::Tra
             route_stops.push_back(finded_stop);
         }
         catalogue.AddBus(command.id, route_stops);
+    }
+}
+
+void InputReader::ApplyStopDistances(const CommandDescription& command, catalogue::TransportCatalogue& catalogue) const {
+    std::unordered_map<std::string_view, int> distances = ParseDistances(command.description);
+    if (!distances.empty()) {
+        catalogue.AddDistance(command.id, distances);
     }
 }

@@ -35,6 +35,8 @@ public:
 
     void ApplyCommand(const CommandDescription& command, catalogue::TransportCatalogue& catalogue) const;
 
+    void ApplyStopDistances(const CommandDescription& command, catalogue::TransportCatalogue& catalogue) const;
+
 private:
     std::vector<CommandDescription> commands_;
 };

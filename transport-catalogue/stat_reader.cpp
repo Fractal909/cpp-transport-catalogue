@@ -35,7 +35,8 @@ void PrintBus(const TransportCatalogue& tansport_catalogue, std::string_view nam
         output << data.name << ": "s
             << data.number_of_stops << " stops on route, "s
             << data.number_of_unique_stops << " unique stops, "s
-            << std::setprecision(6) << data.route_length << " route length"s << "\n"s;
+            << std::setprecision(6) << data.route_length << " route length, "s
+            << data.curvature << " curvature" << "\n"s;
     }
 }
 

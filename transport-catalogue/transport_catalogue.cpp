@@ -47,11 +47,26 @@ namespace catalogue {
         }
         result.number_of_unique_stops = unique_stops_set.size();
 
-        double length = 0;
+        int length = 0;
         for (auto iter = bus->stops.begin(); iter != std::prev(bus->stops.end()); ++iter) {
-            length += ComputeDistance((*iter)->coords, (*std::next(iter))->coords);
+            auto it = distances_.find({ *iter, *(std::next(iter)) });
+            if (it != distances_.end()) {
+                length += (*it).second;
+            }
+            else {
+                it = distances_.find({ *(std::next(iter)), *iter });
+                if (it != distances_.end()) {
+                    length += (*it).second;
+                }
+            }
         }
         result.route_length = length;
+
+        double geo_length = 0;
+        for (auto iter = bus->stops.begin(); iter != std::prev(bus->stops.end()); ++iter) {
+            geo_length += ComputeDistance((*iter)->coords, (*std::next(iter))->coords);
+        }
+        result.curvature = length / geo_length;
 
         return result;
     }
@@ -69,6 +84,27 @@ namespace catalogue {
 
         for (auto stop : buses_.back().stops) {
             buses_by_stop_.at(stop).insert(&buses_.back());
+        }
+    }
+
+    void TransportCatalogue::AddDistance(const std::string_view stop_name, const std::unordered_map <std::string_view, int>& stops_distances) {
+
+        const Stop* main_stop_ptr = FindStopByName(stop_name);
+
+        for (const auto& distance : stops_distances) {
+            const Stop* second_stop_ptr = FindStopByName(distance.first);
+            distances_.insert({ {main_stop_ptr, second_stop_ptr}, distance.second });
+        }
+    }
+
+    int TransportCatalogue::GetDistanceBetweenStops(const std::string_view stop1, const std::string_view stop2) const {
+
+        auto iter = distances_.find({ FindStopByName(stop1), FindStopByName(stop2) });
+        if (iter != distances_.end()) {
+            return (*iter).second;
+        }
+        else {
+            return -1;
         }
     }
 }
