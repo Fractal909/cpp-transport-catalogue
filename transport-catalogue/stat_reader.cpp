@@ -42,19 +42,19 @@ void PrintBus(const TransportCatalogue& tansport_catalogue, std::string_view nam
 
 void PrintStop(const TransportCatalogue& tansport_catalogue, std::string_view name, std::ostream& output) {
 
-    const std::unordered_set<Bus*>* stop_data = tansport_catalogue.FindBusesByStop(std::string(name));
+    const auto stop_data = tansport_catalogue.FindBusesByStop(std::string(name));
 
     output << "Stop "s << name;
 
-    if (stop_data == nullptr) {
+    if (!stop_data.has_value()) {
         output << ": not found"s << '\n';
     }
-    else if (stop_data->empty()) {
+    else if (stop_data.value().get().empty()) {
         output << ": no buses"s << '\n';
     }
     else {
         std::set<std::string_view> res;
-        for (auto bus : *stop_data) {
+        for (auto bus : stop_data.value().get()) {
             res.insert(bus->name);
         }
         output << ": buses ";

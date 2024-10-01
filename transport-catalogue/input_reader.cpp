@@ -185,6 +185,8 @@ void InputReader::ApplyCommand(const CommandDescription& command, catalogue::Tra
 void InputReader::ApplyStopDistances(const CommandDescription& command, catalogue::TransportCatalogue& catalogue) const {
     std::unordered_map<std::string_view, int> distances = ParseDistances(command.description);
     if (!distances.empty()) {
-        catalogue.AddDistance(command.id, distances);
+        for (const auto& distance : distances) {
+            catalogue.AddDistance(command.id, distance.first, distance.second);
+        }
     }
 }

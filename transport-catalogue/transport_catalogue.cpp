@@ -23,12 +23,12 @@ namespace catalogue {
         }
     }
 
-    const std::unordered_set<Bus*>* TransportCatalogue::FindBusesByStop(const std::string_view name) const {
+    std::optional<std::reference_wrapper<const std::unordered_set<Bus*>>> TransportCatalogue::FindBusesByStop(const std::string_view name) const {
         auto stop = FindStopByName(name);
         if (stop == nullptr) {
-            return nullptr;
+            return std::nullopt;
         }
-        return &(buses_by_stop_.at(stop));
+        return std::ref(buses_by_stop_.at(stop));
     }
 
     BusData TransportCatalogue::GetBusData(const std::string& name) const {
@@ -87,19 +87,17 @@ namespace catalogue {
         }
     }
 
-    void TransportCatalogue::AddDistance(const std::string_view stop_name, const std::unordered_map <std::string_view, int>& stops_distances) {
+    void TransportCatalogue::AddDistance(const std::string_view from_stop, const std::string_view to_stop, int distance) {
 
-        const Stop* main_stop_ptr = FindStopByName(stop_name);
+        const Stop* from_stop_ptr = FindStopByName(from_stop);
+        const Stop* to_stop_ptr = FindStopByName(to_stop);
 
-        for (const auto& distance : stops_distances) {
-            const Stop* second_stop_ptr = FindStopByName(distance.first);
-            distances_.insert({ {main_stop_ptr, second_stop_ptr}, distance.second });
-        }
+        distances_.insert({ {from_stop_ptr, to_stop_ptr}, distance });
     }
 
-    int TransportCatalogue::GetDistanceBetweenStops(const std::string_view stop1, const std::string_view stop2) const {
+    int TransportCatalogue::GetDistanceBetweenStops(const std::string_view from, const std::string_view to) const {
 
-        auto iter = distances_.find({ FindStopByName(stop1), FindStopByName(stop2) });
+        auto iter = distances_.find({ FindStopByName(from), FindStopByName(to) });
         if (iter != distances_.end()) {
             return (*iter).second;
         }

@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <optional>
+#include <functional>
 
 namespace catalogue {
 
@@ -40,14 +42,14 @@ namespace catalogue {
 	public:
 		const Bus* FindBusByName(const std::string_view name) const;
 		const Stop* FindStopByName(const std::string_view name) const;
-		const std::unordered_set<Bus*>* FindBusesByStop(const std::string_view name) const;
+		std::optional<std::reference_wrapper<const std::unordered_set<Bus*>>> FindBusesByStop(const std::string_view name) const;
 
 		BusData GetBusData(const std::string& name) const;
-		int GetDistanceBetweenStops(const std::string_view stop1, const std::string_view stop2) const;
+		int GetDistanceBetweenStops(const std::string_view from, const std::string_view to) const;
 
 		void AddStop(const std::string& name, Coordinates coords);
 		void AddBus(const std::string& name, const std::vector<const Stop*>& stops);
-		void AddDistance(const std::string_view stop_name, const std::unordered_map<std::string_view, int>& stops_distances);
+		void AddDistance(const std::string_view from_stop, const std::string_view to_stop, int distance);
 
 	private:
 		std::deque<Stop> stops_;
