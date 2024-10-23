@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geo.h"
+#include "domain.h"
 
 #include <deque>
 #include <string>
@@ -11,16 +12,6 @@
 #include <functional>
 
 namespace catalogue {
-
-	struct Stop {
-		std::string name;
-		Coordinates coords;
-	};
-
-	struct Bus {
-		std::string name;
-		std::vector<const Stop*> stops;
-	};
 
 	struct BusData {
 		std::string_view name;
@@ -47,9 +38,11 @@ namespace catalogue {
 		BusData GetBusData(const std::string& name) const;
 		int GetDistanceBetweenStops(const std::string_view from, const std::string_view to) const;
 
-		void AddStop(const std::string& name, Coordinates coords);
-		void AddBus(const std::string& name, const std::vector<const Stop*>& stops);
+		void AddStop(const std::string& name, geo::Coordinates coords);
+		void AddBus(const std::string& name, const std::vector<const Stop*>& stops, bool is_roundtrip);
 		void AddDistance(const std::string_view from_stop, const std::string_view to_stop, int distance);
+
+		std::vector<const Bus*> GetBuses() const;
 
 	private:
 		std::deque<Stop> stops_;

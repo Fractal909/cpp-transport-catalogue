@@ -71,15 +71,15 @@ namespace catalogue {
         return result;
     }
 
-    void TransportCatalogue::AddStop(const std::string& name, Coordinates coords) {
+    void TransportCatalogue::AddStop(const std::string& name, geo::Coordinates coords) {
         stops_.push_back({ std::move(name), std::move(coords) });
         stops_ptrs_.insert({ stops_.back().name, &stops_.back() });
 
         buses_by_stop_.insert({ &stops_.back(), std::unordered_set<Bus*>() });
     }
 
-    void TransportCatalogue::AddBus(const std::string& name, const std::vector<const Stop*>& stops) {
-        buses_.push_back({ std::move(name), std::move(stops) });
+    void TransportCatalogue::AddBus(const std::string& name, const std::vector<const Stop*>& stops, bool is_roundtrip) {
+        buses_.push_back({ std::move(name), std::move(stops), is_roundtrip });
         buses_ptrs_.insert({ buses_.back().name, &buses_.back() });
 
         for (auto stop : buses_.back().stops) {
@@ -104,5 +104,13 @@ namespace catalogue {
         else {
             return -1;
         }
+    }
+
+    std::vector<const Bus*> TransportCatalogue::GetBuses() const {
+        std::vector<const Bus*> buses;
+        for (const auto& bus : buses_) {
+            buses.push_back(&bus);
+        }
+        return buses;
     }
 }
