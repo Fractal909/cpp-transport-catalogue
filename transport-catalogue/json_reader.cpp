@@ -1,4 +1,5 @@
 #include "json_reader.h"
+#include "json_builder.h"
 
 #include <set>
 #include <sstream>
@@ -7,7 +8,7 @@ using namespace std::literals;
 
 void JsonReader::Read(std::istream& input) {
     const auto document = json::Load(input);
-    const auto& commands = document.GetRoot().AsMap();
+    const auto& commands = document.GetRoot().AsDict();
 
 
     const auto& coms_to_add = commands.find("base_requests"s);
@@ -19,7 +20,7 @@ void JsonReader::Read(std::istream& input) {
     }
 
     if (render_settings != commands.end()) {
-        ParseRenderSettings(render_settings->second.AsMap());
+        ParseRenderSettings(render_settings->second.AsDict());
     }
 
     if (coms_to_req != commands.end()) {
@@ -30,7 +31,7 @@ void JsonReader::Read(std::istream& input) {
 void JsonReader::ParseCommandsToCatalogue(const json::Array& commands) {
 
     for (const auto& com : commands) {
-        const json::Dict& dict = com.AsMap();
+        const json::Dict& dict = com.AsDict();
 
 
         if (dict.at("type"s).AsString() == "Stop"s) {
@@ -39,7 +40,7 @@ void JsonReader::ParseCommandsToCatalogue(const json::Array& commands) {
 
             result.coords = geo::Coordinates{ dict.at("latitude"s).AsDouble(), dict.at("longitude"s).AsDouble() };
 
-            for (const auto& dist : dict.at("road_distances"s).AsMap()) {
+            for (const auto& dist : dict.at("road_distances"s).AsDict()) {
                 result.distances.insert({ dist.first, dist.second.AsInt() });
             }
             stop_commands_.push_back(result);
@@ -84,7 +85,7 @@ void JsonReader::ParseRenderSettings(const json::Dict& elem) {
 void JsonReader::ParseCommandsToPrint(const json::Array& com_node) {
 
     for (const auto& com : com_node) {
-        const json::Dict& dict = com.AsMap();
+        const json::Dict& dict = com.AsDict();
 
         CommandToOut result;
 
@@ -152,32 +153,45 @@ void JsonReader::ApplyBusCommands(TransportCatalogue& catalogue) const {
 void JsonReader::Print(const TransportCatalogue& catalogue, std::ostream& output) const {
 
     if (!commands_to_out_.empty()) {
-        output << '[';
+
+        json::Builder builder;
+        builder.StartArray();
+
         for (const auto& command : commands_to_out_) {
 
             if (command.type == OutType::STOP) {
-                PrintStop(command, catalogue, output);
+                builder.Value(std::move(PrintStop(command, catalogue).GetValue()));
             }
             else if (command.type == OutType::BUS) {
-                PrintBus(command, catalogue, output);
+                builder.Value(std::move(PrintBus(command, catalogue).GetValue()));
             }
             else if (command.type == OutType::MAP) {
+                json::Node out_node;
+
                 MapRenderer renderer;
                 this->ApplyRendererSetting(renderer);
                 std::stringstream map_out;
                 renderer.RenderMap(catalogue, map_out);
-                json::Print(json::Document(json::Node({ {"map"s, map_out.str()}, {"request_id", command.id} })), output);
-            }
 
-            if (&command != &(*std::prev(commands_to_out_.end()))) {
-                output << ',';
+                out_node = json::Builder{}
+                    .StartDict()
+                    .Key("map"s).Value(map_out.str())
+                    .Key("request_id").Value(command.id)
+                    .EndDict()
+                    .Build();
+
+                builder.Value(std::move(out_node.GetValue()));
             }
         }
-        output << ']';
+
+        builder.EndArray();
+        json::Print(json::Document{ builder.Build() }, output);
     }
 }
 
-void JsonReader::PrintStop(const CommandToOut& com, const TransportCatalogue& catalogue, std::ostream& out) const {
+json::Node JsonReader::PrintStop(const CommandToOut& com, const TransportCatalogue& catalogue) const {
+    json::Node out_node;
+
     json::Array buses;
     auto buses_res = catalogue.FindBusesByStop(com.name);
     if (buses_res.has_value()) {
@@ -189,26 +203,54 @@ void JsonReader::PrintStop(const CommandToOut& com, const TransportCatalogue& ca
         for (const auto& bus_name : buses_names) {
             buses.push_back(bus_name);
         }
-        json::Print(json::Document(json::Node({ { "buses"s, buses }, { "request_id"s, com.id } })), out);
+
+        out_node = json::Builder{}
+            .StartDict()
+            .Key("buses"s).Value(buses)
+            .Key("request_id"s).Value(com.id)
+            .EndDict()
+            .Build();
+        return out_node;
     }
     else {
-        json::Print(json::Document(json::Node({ {"error_message"s, "not found"s}, { "request_id"s, com.id }, })), out);
+        out_node = json::Builder{}
+            .StartDict()
+            .Key("error_message"s).Value("not found"s)
+            .Key("request_id"s).Value(com.id)
+            .EndDict()
+            .Build();
+        return out_node;
     }
 }
 
-void JsonReader::PrintBus(const CommandToOut& com, const TransportCatalogue& catalogue, std::ostream& out) const {
+json::Node JsonReader::PrintBus(const CommandToOut& com, const TransportCatalogue& catalogue) const {
+    json::Node out_node;
     auto bus_data = catalogue.GetBusData(com.name);
 
     if (bus_data.name.empty()) {
-        json::Print(json::Document(json::Node({ {"request_id"s, com.id},
-            {"error_message"s, "not found"s} })), out);
+
+        out_node = json::Builder{}
+            .StartDict()
+            .Key("request_id"s).Value(com.id)
+            .Key("error_message"s).Value("not found"s)
+            .EndDict()
+            .Build();
+
+        return out_node;
     }
     else {
-        json::Print(json::Document(json::Node({ {"curvature"s, bus_data.curvature},
-            {"request_id"s, com.id},
-            {"route_length"s, bus_data.route_length},
-            {"stop_count"s, bus_data.number_of_stops},
-            {"unique_stop_count"s, bus_data.number_of_unique_stops} })), out);
+
+        out_node = json::Builder{}
+            .StartDict()
+            .Key("curvature"s).Value(bus_data.curvature)
+            .Key("request_id"s).Value(com.id)
+            .Key("route_length"s).Value(bus_data.route_length)
+            .Key("stop_count"s).Value(bus_data.number_of_stops)
+            .Key("unique_stop_count"s).Value(bus_data.number_of_unique_stops)
+            .EndDict()
+            .Build();
+
+        return out_node;
     }
 }
 

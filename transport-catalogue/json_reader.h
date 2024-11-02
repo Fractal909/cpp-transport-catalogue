@@ -40,8 +40,8 @@ public:
     void ApplyRendererSetting(MapRenderer& renderer) const;
     void Print(const TransportCatalogue& catalogue, std::ostream& output) const;
 private:
-    void PrintStop(const CommandToOut& com, const TransportCatalogue& catalogue, std::ostream& out) const;
-    void PrintBus(const CommandToOut& com, const TransportCatalogue& catalogue, std::ostream& out) const;
+    json::Node PrintStop(const CommandToOut& com, const TransportCatalogue& catalogue) const;
+    json::Node PrintBus(const CommandToOut& com, const TransportCatalogue& catalogue) const;
     void ApplyStopCommands(TransportCatalogue& catalogue) const;
     void ApplyBusCommands(TransportCatalogue& catalogue) const;
     void ParseCommandsToCatalogue(const json::Array& elem);
