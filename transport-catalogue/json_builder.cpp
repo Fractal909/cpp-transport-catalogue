@@ -5,7 +5,11 @@
 
 namespace json {
 
-    KeyItemContext Builder::Key(std::string str) {
+    Builder::Builder()
+        :last_com_(), init_(), last_keys_(), node_(), nodes_stack_()
+    {}
+
+    Builder::KeyeItemContext Builder::Key(std::string str) {
 
         if (last_com_ == Command::KEY) {
             throw std::logic_error("Key after key");
@@ -17,10 +21,10 @@ namespace json {
         last_keys_.push_back(std::move(str));
 
         last_com_ = Command::KEY;
-        return KeyItemContext{ *this };
+        return BaseContext{ *this };
     }
 
-    Builder& Builder::Value(Node::Value val) {
+    Builder::BaseContext Builder::Value(Node::Value val) {
 
         if (last_com_ == Command::SD) {
             throw std::logic_error("Val after SD");
@@ -39,7 +43,7 @@ namespace json {
         return *this;
     }
 
-    DictItemContext Builder::StartDict() {
+    Builder::DictItemContext Builder::StartDict() {
         if (last_com_ == Command::SD) {
             throw std::logic_error("SD after SD");
         }
@@ -56,10 +60,10 @@ namespace json {
 
 
         last_com_ = Command::SD;
-        return DictItemContext{ *this };
+        return BaseContext{ *this };
     }
 
-    Builder& Builder::EndDict() {
+    Builder::BaseContext Builder::EndDict() {
 
         if (nodes_stack_.empty()) {
             throw std::logic_error("Trying ED before SD or SA");
@@ -89,7 +93,7 @@ namespace json {
         return *this;
     }
 
-    ArrayItemContext Builder::StartArray() {
+    Builder::ArrayItemContext Builder::StartArray() {
         if (last_com_ == Command::SD) {
             throw std::logic_error("SA after SD");
         }
@@ -106,10 +110,10 @@ namespace json {
 
 
         last_com_ = Command::SA;
-        return ArrayItemContext{ *this };
+        return BaseContext{ *this };
     }
 
-    Builder& Builder::EndArray() {
+    Builder::BaseContext Builder::EndArray() {
 
         if (nodes_stack_.empty()) {
             throw std::logic_error("Trying EA before SA or SD");
@@ -142,7 +146,7 @@ namespace json {
 
     Node Builder::Build() {
 
-        if (!init) {
+        if (!init_) {
             throw std::logic_error("Build not init");
         }
         if (last_com_ == Command::KEY) {
@@ -166,7 +170,7 @@ namespace json {
         Node* node_ptr;
         if (nodes_stack_.empty()) {
             node_ptr = &node_;
-            init = true;
+            init_ = true;
         }
         else {
             node_ptr = nodes_stack_.back();
@@ -194,65 +198,6 @@ namespace json {
             *node_ptr = n;
             return node_ptr;
         }
-    }
-
-
-    KeyItemContext DictItemContext::Key(std::string str) {
-        return builder_.Key(str);
-    }
-    Builder& DictItemContext::EndDict() {
-        return builder_.EndDict();
-    }
-
-
-
-    ValueItemContext KeyItemContext::Value(Node::Value val) {
-        return builder_.Value(val);
-    }
-    DictItemContext KeyItemContext::StartDict() {
-        return builder_.StartDict();
-    }
-    ArrayItemContext KeyItemContext::StartArray() {
-        return builder_.StartArray();
-    }
-
-
-
-    KeyItemContext ValueItemContext::Key(std::string str) {
-        return builder_.Key(str);
-    }
-    Builder& ValueItemContext::EndDict() {
-        return builder_.EndDict();
-    }
-
-
-
-    ArrayValItemContext ArrayItemContext::Value(Node::Value val) {
-        return builder_.Value(val);
-    }
-    DictItemContext ArrayItemContext::StartDict() {
-        return builder_.StartDict();
-    }
-    ArrayItemContext ArrayItemContext::StartArray() {
-        return builder_.StartArray();
-    }
-    Builder& ArrayItemContext::EndArray() {
-        return builder_.EndArray();
-    }
-
-
-
-    ArrayValItemContext ArrayValItemContext::Value(Node::Value val) {
-        return builder_.Value(val);
-    }
-    DictItemContext ArrayValItemContext::StartDict() {
-        return builder_.StartDict();
-    }
-    ArrayItemContext ArrayValItemContext::StartArray() {
-        return builder_.StartArray();
-    }
-    Builder& ArrayValItemContext::EndArray() {
-        return builder_.EndArray();
     }
 }
 
