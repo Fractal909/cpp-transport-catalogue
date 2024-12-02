@@ -1,8 +1,10 @@
 #include "json_reader.h"
 #include "json_builder.h"
 
+
 #include <set>
 #include <sstream>
+#include <map>
 
 using namespace std::literals;
 
@@ -14,6 +16,7 @@ void JsonReader::Read(std::istream& input) {
     const auto& coms_to_add = commands.find("base_requests"s);
     const auto& render_settings = commands.find("render_settings"s);
     const auto& coms_to_req = commands.find("stat_requests"s);
+    const auto& routing_settings = commands.find("routing_settings"s);
 
     if (coms_to_add != commands.end()) {
         ParseCommandsToCatalogue(coms_to_add->second.AsArray());
@@ -26,6 +29,11 @@ void JsonReader::Read(std::istream& input) {
     if (coms_to_req != commands.end()) {
         ParseCommandsToPrint(coms_to_req->second.AsArray());
     }
+
+    if (routing_settings != commands.end()) {
+        ParseRoutingSettings(routing_settings->second.AsDict());
+    }
+
 }
 
 void JsonReader::ParseCommandsToCatalogue(const json::Array& commands) {
@@ -102,9 +110,19 @@ void JsonReader::ParseCommandsToPrint(const json::Array& com_node) {
         else if (dict.at("type"s).AsString() == "Map") {
             result.type = OutType::MAP;
         }
+        else if (dict.at("type"s).AsString() == "Route") {
+            result.type = OutType::ROUTE;
+            result.name = dict.at("from").AsString();
+            result.to = dict.at("to").AsString();
+        }
 
         commands_to_out_.push_back(result);
     }
+}
+
+void JsonReader::ParseRoutingSettings(const json::Dict& elem) {
+    routing_settings_.bus_velocity = elem.at("bus_velocity"s).AsInt();
+    routing_settings_.bus_wait_time = elem.at("bus_wait_time"s).AsInt();
 }
 
 void JsonReader::ApplyCatalogueCommands(TransportCatalogue& catalogue) const {
@@ -114,6 +132,7 @@ void JsonReader::ApplyCatalogueCommands(TransportCatalogue& catalogue) const {
     ApplyDistances(catalogue);
 
     ApplyBusCommands(catalogue);
+
 }
 
 void JsonReader::ApplyStopCommands(TransportCatalogue& catalogue) const {
@@ -125,7 +144,7 @@ void JsonReader::ApplyStopCommands(TransportCatalogue& catalogue) const {
 void JsonReader::ApplyDistances(TransportCatalogue& catalogue) const {
     for (const auto& stop_com : stop_commands_) {
         for (const auto& [name, dist] : stop_com.distances) {
-            catalogue.AddDistance(stop_com.name, name, dist);
+            catalogue.AddDistance(stop_com.name, name, dist + 0);
         }
     }
 }
@@ -150,9 +169,11 @@ void JsonReader::ApplyBusCommands(TransportCatalogue& catalogue) const {
     }
 }
 
-void JsonReader::Print(const TransportCatalogue& catalogue, std::ostream& output) const {
+void JsonReader::PrintRequests(TransportCatalogue& catalogue, std::ostream& output) {
 
     if (!commands_to_out_.empty()) {
+
+        router::TransportRouter router(catalogue, routing_settings_.bus_wait_time, routing_settings_.bus_velocity);
 
         json::Builder builder;
         builder.StartArray();
@@ -182,7 +203,18 @@ void JsonReader::Print(const TransportCatalogue& catalogue, std::ostream& output
 
                 builder.Value(std::move(out_node.GetValue()));
             }
+            else if (command.type == OutType::ROUTE) {
+
+                const auto result = router.ComputeRoute(command.name, command.to);
+                if (result.has_value()) {
+                    builder.Value(std::move(BuildRouteNode(command, result.value()).GetValue()));
+                }
+                else {
+                    builder.Value(std::move(BuildErrorNode(command).GetValue()));
+                }
+            }
         }
+
 
         builder.EndArray();
         json::Print(json::Document{ builder.Build() }, output);
@@ -270,4 +302,51 @@ svg::Color JsonReader::GetColor(const json::Node& elem) const {
 
 void JsonReader::ApplyRendererSetting(MapRenderer& renderer) const {
     renderer.SetSettings(commands_to_render_);
+}
+
+json::Node JsonReader::BuildRouteNode(const CommandToOut& com, const std::vector<router::RouteElem>& route_data) const {
+
+    json::Builder j_builder;
+
+    double total_time = 0;
+
+    j_builder.StartDict()
+        .Key("items")
+        .StartArray();
+
+    for (const auto& elem : route_data) {
+
+        j_builder.StartDict().Key("type");
+        total_time += elem.time;
+
+        if (elem.type == router::RouteElemType::GO) {
+            j_builder.Value("Bus");
+            j_builder.Key("bus").Value(std::string(elem.bus_name));
+            j_builder.Key("span_count").Value(elem.span_count);
+            j_builder.Key("time").Value(elem.time);
+        }
+        else if (elem.type == router::RouteElemType::WAIT) {
+            j_builder.Value("Wait");
+            j_builder.Key("stop_name").Value(elem.to->name);
+            j_builder.Key("time").Value(elem.time);
+        }
+        j_builder.EndDict();
+    }
+
+    j_builder.EndArray();
+    j_builder.Key("request_id").Value(com.id);
+    j_builder.Key("total_time").Value(total_time);
+    j_builder.EndDict();
+
+
+
+
+    return j_builder.Build();
+}
+
+json::Node JsonReader::BuildErrorNode(const CommandToOut& com) const {
+    return json::Builder().StartDict()
+        .Key("request_id").Value(com.id)
+        .Key("error_message").Value("not found")
+        .EndDict().Build();
 }

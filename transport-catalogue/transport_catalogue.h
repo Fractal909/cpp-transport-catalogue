@@ -36,13 +36,16 @@ namespace catalogue {
 		std::optional<std::reference_wrapper<const std::unordered_set<Bus*>>> FindBusesByStop(const std::string_view name) const;
 
 		BusData GetBusData(const std::string& name) const;
+		std::unordered_map<std::pair<const Stop*, const Stop*>, int, StopsPairHasher> GetAllDistances() const;
 		int GetDistanceBetweenStops(const std::string_view from, const std::string_view to) const;
+		int GetDistanceBetweenStops(const Stop* from, const Stop* to) const;
 
 		void AddStop(const std::string& name, geo::Coordinates coords);
 		void AddBus(const std::string& name, const std::vector<const Stop*>& stops, bool is_roundtrip);
 		void AddDistance(const std::string_view from_stop, const std::string_view to_stop, int distance);
 
 		std::vector<const Bus*> GetBuses() const;
+		std::vector<const Stop*> GetStops() const;
 
 	private:
 		std::deque<Stop> stops_;

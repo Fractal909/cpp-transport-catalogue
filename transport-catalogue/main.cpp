@@ -1,7 +1,7 @@
 #include <iostream>
-#include <string>
 
 #include "json_reader.h"
+
 
 using namespace std;
 
@@ -13,5 +13,5 @@ int main() {
     TransportCatalogue catalogue;
     reader.ApplyCatalogueCommands(catalogue);
 
-    reader.Print(catalogue, cout);
+    reader.PrintRequests(catalogue, cout);
 }

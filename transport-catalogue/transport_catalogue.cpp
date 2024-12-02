@@ -48,15 +48,22 @@ namespace catalogue {
         result.number_of_unique_stops = unique_stops_set.size();
 
         int length = 0;
+
+        unsigned int res = 0;
+
         for (auto iter = bus->stops.begin(); iter != std::prev(bus->stops.end()); ++iter) {
             auto it = distances_.find({ *iter, *(std::next(iter)) });
             if (it != distances_.end()) {
                 length += (*it).second;
+                //
+                res += (*it).second;
             }
             else {
                 it = distances_.find({ *(std::next(iter)), *iter });
                 if (it != distances_.end()) {
                     length += (*it).second;
+                    //
+                    res += (*it).second;
                 }
             }
         }
@@ -92,12 +99,20 @@ namespace catalogue {
         const Stop* from_stop_ptr = FindStopByName(from_stop);
         const Stop* to_stop_ptr = FindStopByName(to_stop);
 
+        if (from_stop_ptr == nullptr || to_stop_ptr == nullptr) {
+            throw("ErrorAddDistance");
+        }
+
         distances_.insert({ {from_stop_ptr, to_stop_ptr}, distance });
     }
 
     int TransportCatalogue::GetDistanceBetweenStops(const std::string_view from, const std::string_view to) const {
 
-        auto iter = distances_.find({ FindStopByName(from), FindStopByName(to) });
+        return GetDistanceBetweenStops(FindStopByName(from), FindStopByName(to));
+    }
+
+    int TransportCatalogue::GetDistanceBetweenStops(const Stop* from, const Stop* to) const {
+        auto iter = distances_.find({ from, to });
         if (iter != distances_.end()) {
             return (*iter).second;
         }
@@ -112,5 +127,17 @@ namespace catalogue {
             buses.push_back(&bus);
         }
         return buses;
+    }
+    std::vector<const Stop*> TransportCatalogue::GetStops() const {
+        std::vector<const Stop*> stops;
+        for (const auto& stop : stops_) {
+            stops.push_back(&stop);
+        }
+        return stops;
+    }
+
+
+    std::unordered_map<std::pair<const Stop*, const Stop*>, int, StopsPairHasher> TransportCatalogue::GetAllDistances() const {
+        return distances_;
     }
 }
