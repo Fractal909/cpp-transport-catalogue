@@ -2,19 +2,25 @@
 #include <iostream>
 
 
+
+
 namespace router {
+
+    const double km_to_m = 1000;
+    const double h_to_m = 60;
 
 
 
     TransportRouter::TransportRouter(const catalogue::TransportCatalogue& catalogue, int bus_wait_time, int bus_velocity)
-        :bus_wait_time_(bus_wait_time), bus_velocity_(bus_velocity), catalogue_(catalogue),
-        graph_(BuildGraph()),
-        router_(graph_) {}
+        :bus_wait_time_(bus_wait_time), bus_velocity_(bus_velocity), catalogue_(catalogue)
+    {
+        BuildGraph();
+    }
 
 
 
 
-    graph::DirectedWeightedGraph<double> TransportRouter::BuildGraph() {
+    void TransportRouter::BuildGraph() {
 
         size_t iter = 0;
         for (const auto& stop : catalogue_.GetStops()) {
@@ -24,16 +30,14 @@ namespace router {
             iter += 2;
         }
 
-        graph::DirectedWeightedGraph<double> result_graph(vertex_by_stop_.size() * 2);
+        graph_ = std::make_unique < graph::DirectedWeightedGraph<double>>(vertex_by_stop_.size() * 2);
 
         for (size_t i = 0; i < vertex_by_stop_.size() * 2; i += 2) {
-            result_graph.AddEdge({ i + 1, i, (double)bus_wait_time_ });
+            graph_->AddEdge({ i + 1, i, (double)bus_wait_time_ });
             route_elem_by_edge_.push_back({ RouteElemType::WAIT, stop_by_vertex_.at(i + 1), stop_by_vertex_.at(i), "", (double)bus_wait_time_, -1 });
         }
 
         ComputeDistancesAndGenerateEdges();
-
-        return result_graph;
     }
 
     void TransportRouter::ComputeDistancesAndGenerateEdges() {
@@ -58,15 +62,16 @@ namespace router {
                     ++total_span;
                     if (*it_from != *it_to) {
 
-                        double time = total_distance / (1000 * bus_velocity_ / 60.0);
+                        double time = total_distance / (km_to_m * bus_velocity_ / h_to_m);
 
-                        graph_.AddEdge({ vertex_by_stop_.at(*it_from).second, vertex_by_stop_.at(*it_to).first, time });
+                        graph_->AddEdge({ vertex_by_stop_.at(*it_from).second, vertex_by_stop_.at(*it_to).first, time });
 
                         route_elem_by_edge_.push_back(RouteElem{ RouteElemType::GO, (*it_from), (*it_to), bus->name, time, total_span });
                     }
                 }
             }
         }
+        router_ = std::make_unique<graph::Router<double>>(*graph_);
     }
 
     std::optional<const std::vector<RouteElem>> TransportRouter::ComputeRoute(const std::string_view from, const std::string_view to) {
@@ -74,7 +79,7 @@ namespace router {
         std::vector<RouteElem> result;
 
         if (from != to) {
-            const auto route = router_.BuildRoute(vertex_by_stop_.at(catalogue_.FindStopByName(from)).first, vertex_by_stop_.at(catalogue_.FindStopByName(to)).first);
+            const auto route = router_->BuildRoute(vertex_by_stop_.at(catalogue_.FindStopByName(from)).first, vertex_by_stop_.at(catalogue_.FindStopByName(to)).first);
 
             if (route.has_value()) {
                 for (const auto edge : route.value().edges) {
@@ -85,13 +90,9 @@ namespace router {
             else {
                 return std::nullopt;
             }
-
         }
         else {
             return result;
         }
-
-
-
     }
 }
